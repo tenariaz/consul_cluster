@@ -1,0 +1,86 @@
+#### Inslall consul ####
+  sudo apt update & sudo apt update -y
+  wget https://releases.hashicorp.com/consul/1.16.0/consul_1.16.0_linux_amd64.zip
+  #actually version here -> https://developer.hashicorp.com/consul/downloads
+  sudo apt install unzip & unzip consul_1.16.0_linux_amd64.zip
+  sudo mv consul /usr/local/bin/
+
+#### Configure Consul ####
+  sudo useradd -s /sbin/nologin -r consul 
+  sudo mkdir -p /var/lib/consul  #Create consul data directory
+  sudo chown -R consul:consul /var/lib/consul
+  sudo chmod -R 775 /var/lib/consul
+  sudo mkdir /etc/consul.d #Create Consul configurations directory
+  sudo chown -R consul:consul /etc/consul.d
+
+# Clone vm Consul twice
+# change hostname & ip all vm`s (for example 172.20.160.100 - consul1 | 172.20.160.102 - consul2 | 172.20.160.102 - consul3 )
+
+#### Create Consul Cluster ####
+  #Edit hosts
+  sudo nano /etc/hosts  
+    172.20.160.100 - consul1
+    172.20.160.101 - consul2
+    172.20.160.102 - consul3
+# Create a systemd service file in all nodes
+  sudo nano /etc/systemd/system/consul.service
+
+      [Unit]
+Description=Consul
+After=network-online.target
+      [Service]
+Type=simple
+User=consul
+Group=consul
+ExecStart=/usr/local/bin/consul agent	-node=consul1	-config-dir=/etc/consul.d #-node = hostname each node
+ExecReload=/bin/kill -HUP $MAINPID
+KillSignal=SIGINT
+TimeoutStopSec=5
+Restart=on-failure
+SyslogIdentifier=consul
+    [Install]
+WantedBy=multi-user.target
+
+#generate key
+  consul keygen
+
+# Create a json configuration in all nodes
+  sudo nano /etc/consul.d/config.json
+
+{
+    "advertise_addr": "172.20.160.10*", #ip node
+    "bind_addr": "172.20.160.10*",#ip node
+    "bootstrap_expect": 3,
+    "client_addr": "0.0.0.0",
+    "datacenter": "MAIN",
+    "data_dir": "/var/lib/consul",
+    "domain": "consul",
+    "enable_script_checks": true,
+    "dns_config": {
+        "enable_truncate": true,
+        "only_passing": true
+    },
+    "enable_syslog": true,
+    "encrypt": "my_encrypt_key", #key, generated on node 1
+    "leave_on_terminate": true,
+    "log_level": "INFO",
+    "rejoin_after_leave": true,
+    "retry_join": [
+     "consul1",
+     "consul2",
+     "consul3"
+    ],
+    "server": true,
+    "start_join": [
+        "consul1",
+        "consul2",
+        "consul3"
+    ],
+    "ui": true
+}
+
+  sudo systemctl start consul
+  sudo systemctl enable consul
+  consul members
+#Check cluster members
+  consul members
