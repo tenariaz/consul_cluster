@@ -79,6 +79,7 @@ WantedBy=multi-user.target
     "ui": true
 }
 
+  sudo systemctl demon-reload
   sudo systemctl start consul
   sudo systemctl enable consul
   consul members
